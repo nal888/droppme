@@ -2,6 +2,8 @@
 
 > file transfer generate · pick · copy · run
 
+**Live:** https://nal888.github.io/droppme/
+
 Ready-to-paste file transfer commands for Windows and Linux targets across many methods, languages, and tools.
 
 ## What it does

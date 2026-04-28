@@ -15,7 +15,7 @@ Useful when:
 
 ## Features
 
-- **84 techniques** covering Windows, Linux, and cross-platform methods
+- **85 techniques** covering Windows, Linux, and cross-platform methods
 - **Smart filters** — OS, mode (download/upload), category, stealth tier, fileless only, HTB-only
 - **"Server side" companion** — every technique shows the matching server command on the attacker (auto-hides when you tell it which server you have running)
 - **Substitutions** — IP/port/filename/output dir auto-fill into every command
@@ -29,11 +29,6 @@ Useful when:
 2. Enter your attacker IP, port, and the filename you're transferring
 3. Pick a technique from the sidebar (filter or search to narrow it down)
 4. Click the copy button — paste into the target shell
-
-Bookmark with parameters in the URL:
-```
-https://yourname.github.io/droppme/?ip=10.10.14.46&port=8000&filename=payload.exe
-```
 
 ## Adding new techniques
 
@@ -86,18 +81,6 @@ Just open `index.html` in a browser. Or serve with any static server:
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
-
-## Deploying to GitHub Pages
-
-1. Push this folder to a GitHub repo named `droppme` (or whatever)
-2. Settings → Pages → Source → "Deploy from a branch" → main / root
-3. Wait a minute. Site lives at `https://YOUR_USERNAME.github.io/REPO_NAME/`
-
-## Tech
-
-- Vanilla HTML, CSS, JavaScript — no framework, no build step
-- Templates as JSON for easy editing
-- All processing client-side, no data leaves the browser
 
 ## License
 

